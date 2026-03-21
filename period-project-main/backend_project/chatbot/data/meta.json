@@ -1,0 +1,8 @@
+{
+  "embedding_model": "all-MiniLM-L6-v2",
+  "csv_saved": "train24K.csv",
+  "embeddings_file": "embeddings.npy",
+  "faiss_index_file": "faiss_index.idx",
+  "n_rows": 22399,
+  "dim": 384
+}

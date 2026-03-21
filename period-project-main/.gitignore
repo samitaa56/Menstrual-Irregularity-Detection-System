@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+.env
+.venv/
+venv/
+venv*/
+ENV/
+env/
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# Node / React
+node_modules/
+dist/
+build/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# virtual envs
+venv*/
+.venv/
+env/
+ENV/
+period-project-main/venv310/
+
+# node
+node_modules/
+
+# python junk
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
