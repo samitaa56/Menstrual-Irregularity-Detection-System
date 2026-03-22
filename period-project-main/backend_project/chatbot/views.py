@@ -39,6 +39,7 @@ def _load_resources():
 def _load_generator():
     """Load the text generation model on demand."""
     try:
+        # Reverting to GPT-2 as requested by user
         generator = pipeline("text-generation", model="gpt2", max_length=200, truncation=True)
         return generator
     except Exception as e:
@@ -76,38 +77,36 @@ def _generate_response(question: str, context: str) -> str:
     if generator is None:
         return context 
 
-    prompt = (
-        f"Instructions: Using ONLY the provided context, answer the user question. "
-        f"Do NOT mention articles, links, emails, or 'checking below'. Keep it factual.\n\n"
-        f"Context: {context}\n"
-        f"Question: {question}\n"
-        f"Answer:"
-    )
+    # Simpler document completion prompt for GPT-2
+    # Instead of "Instructions", we format it like a factual snippet.
+    prompt = f"Fact: {context[:500]}\nQuestion: {question}\nConcise Answer:\n"
     
     try:
-        # Even stricter parameters for GPT-2 to keep it grounded
+        # Tightly constrained generation parameters for base GPT-2
         output = generator(
             prompt,
-            max_new_tokens=60,       # Shorter is safer
+            max_new_tokens=40,       # Keep it short to limit rambling
             num_return_sequences=1,
             do_sample=True,
-            temperature=0.2,         # Extremely low for "factuality"
-            top_k=20,
-            top_p=0.8,
-            repetition_penalty=1.5,
-            no_repeat_ngram_size=3,
+            temperature=0.5,         # Lower temperature to keep it less random
+            top_p=0.9,
+            repetition_penalty=2.0,  # Strongly stop it from repeating phrases
+            no_repeat_ngram_size=2,
             return_full_text=False,
+            pad_token_id=50256,      # Silence huggingface warnings
         )
         generated = output[0]["generated_text"].strip()
 
-        # Cleanup
-        if "Answer:" in generated:
-            generated = generated.split("Answer:")[-1].strip()
+        # Stop at the first newline or double space
+        if "\n" in generated:
+            generated = generated.split("\n")[0].strip()
 
         blacklist = ["see my article", "check below", "email here", "contact us", "click the link", "read more"]
         sentences = [s for s in generated.split(". ") if s.strip()]
         clean_sentences = [s for s in sentences if not any(p in s.lower() for p in blacklist)]
-        generated = ". ".join(clean_sentences).strip()
+        
+        # In case it generates multiple sentences, take just the first one so it's a "concise answer"
+        generated = clean_sentences[0] + "." if clean_sentences else ""
         
         # No Research Tag as requested
         return generated if len(generated) > 10 else context[:300]
@@ -135,6 +134,8 @@ def chatbot_response(request):
     
     # Selective Logic
     CONFIDENCE_THRESHOLD = 0.70 
+    MIN_GENERATION_THRESHOLD = 0.45  # Must find at least "somewhat" related info to generate
+    
     generative_keywords = ["how", "why", "explain", "describe", "process"]
     is_generative_request = any(word in user_question.lower() for word in generative_keywords)
 
@@ -145,7 +146,7 @@ def chatbot_response(request):
             "source": "verified_retrieval",
             "confidence": round(top_score, 4)
         })
-    elif is_generative_request:
+    elif is_generative_request and top_score >= MIN_GENERATION_THRESHOLD:
         context_parts = [f"Knowledge {i+1}: {str(res.get('answer','')).strip()}" for i, res in enumerate(results[:3])]
         combined_context = "\n".join(context_parts)
         generated = _generate_response(user_question, combined_context)
@@ -157,7 +158,7 @@ def chatbot_response(request):
         })
     else:
         return Response({
-            "reply": results[0].get("answer", "I'm not sure. Please rephrase."),
+            "reply": "I'm sorry, Could you please rephrase your question or ask about menstrual health?",
             "source": "none",
             "confidence": round(top_score, 4)
         })
