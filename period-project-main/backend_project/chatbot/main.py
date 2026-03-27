@@ -12,16 +12,22 @@ EMB_PATH = os.path.join(DATA_DIR, "embeddings.npy")
 INDEX_PATH = os.path.join(DATA_DIR, "faiss_index.idx")
 META_PATH = os.path.join(DATA_DIR, "meta.json")
 
-# Check if embeddings and index exist, else create
-if os.path.exists(EMB_PATH) and os.path.exists(INDEX_PATH):
-    print("Loading embeddings and FAISS index...")
+# Check if index exists AND is newer than the CSV
+csv_mtime = os.path.getmtime(CSV_PATH) if os.path.exists(CSV_PATH) else 0
+index_mtime = os.path.getmtime(INDEX_PATH) if os.path.exists(INDEX_PATH) else 0
+
+if os.path.exists(EMB_PATH) and os.path.exists(INDEX_PATH) and index_mtime > csv_mtime:
+    print("✅ Knowledge base is up to date. Loading embeddings and FAISS index...")
     embeddings = np.load(EMB_PATH)
     index = faiss.read_index(INDEX_PATH)
     with open(META_PATH) as f:
         meta = json.load(f)
     EMBED_MODEL_NAME = meta["embedding_model"]
 else:
-    print("Computing embeddings and building FAISS index...")
+    if index_mtime <= csv_mtime and os.path.exists(INDEX_PATH):
+        print("🔄 Knowledge base updated. Re-computing embeddings and rebuilding FAISS index...")
+    else:
+        print("🚀 First-time setup: Computing embeddings and building FAISS index...")
     df = pd.read_csv(CSV_PATH)
     df = df[['Question', 'Answer']].dropna().reset_index(drop=True)
     EMBED_MODEL_NAME = "all-MiniLM-L6-v2"

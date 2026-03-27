@@ -38,7 +38,14 @@ function Chatbot() {
               ? data.reply.map((r) => r.answer).join("\n\n")
               : "No answer found.";
 
-        setMessages((prev) => [...prev, { sender: "bot", text: replyText }]);
+        setMessages((prev) => [
+          ...prev, 
+          { 
+            sender: "bot", 
+            text: replyText,
+            source: data.source // <-- Store the source (generation or verified_retrieval)
+          }
+        ]);
         setTyping(false);
       }, 800);
     } catch (err) {
